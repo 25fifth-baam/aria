@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="HuntAI"/>
+<meta name="theme-color" content="#000000"/>
+<title>HuntAI — Bug Bounty Intelligence</title>
+<style>
+/* System fonts - work everywhere, no internet needed */
+</style>
+<style>
+:root{
+  --bg:#050505;--s1:#0d0d0d;--s2:#141414;--s3:#1c1c1c;
+  --border:#222;--border2:#2a2a2a;
+  --text:#f0f0f0;--muted:#555;--muted2:#888;
+  --green:#00ff88;--red:#ff3d3d;--yellow:#ffcc00;--blue:#00aaff;--purple:#a855f7;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bot:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Text','Segoe UI',sans-serif;overflow:hidden;}
+body{display:flex;flex-direction:column;height:100dvh;}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
+
+/* TOPBAR */
+#topbar{
+display:flex;align-items:center;justify-content:space-between;
+padding:calc(14px + var(–safe-top)) 16px 12px;
+background:var(–s1);border-bottom:1px solid var(–border);flex-shrink:0;
+}
+.logo{font-family:-apple-system,‘SF Pro Display’,‘Segoe UI’,sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;}
+.logo span{color:var(–green);}
+.logo-sub{font-family:‘Courier New’,monospace;font-size:9px;color:var(–muted);letter-spacing:.15em;}
+.sys-badge{font-family:‘Courier New’,monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(–green)33;background:var(–green)0d;color:var(–green);}
+
+/* NAV */
+#nav{display:flex;background:var(–s1);border-bottom:1px solid var(–border);flex-shrink:0;}
+.nav-tab{
+flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+padding:8px 4px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;
+}
+.nav-tab.active{border-bottom-color:var(–green);}
+.nav-tab.active .nt-label{color:var(–green);}
+.nt-icon{font-size:16px;}
+.nt-label{font-size:9px;font-weight:600;color:var(–muted);letter-spacing:.05em;text-transform:uppercase;}
+
+/* MAIN */
+#main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+
+/* BUTTONS */
+.btn{border:none;border-radius:10px;cursor:pointer;font-family:-apple-system,‘SF Pro Display’,‘Segoe UI’,sans-serif;font-weight:700;letter-spacing:.05em;transition:all .2s;display:flex;align-items:center;gap:6px;justify-content:center;}
+.btn:active{transform:scale(.96);}
+.btn-green{background:var(–green);color:#000;padding:12px 18px;font-size:13px;width:100%;}
+.btn-outline{background:transparent;border:1px solid var(–border2);color:var(–muted2);padding:8px 14px;font-size:12px;}
+.btn-red{background:var(–red)18;border:1px solid var(–red)44;color:var(–red);padding:8px 14px;font-size:12px;}
+.btn-blue{background:var(–blue)18;border:1px solid var(–blue)44;color:var(–blue);padding:8px 14px;font-size:12px;}
+
+/* INPUTS */
+.input{width:100%;background:var(–s2);border:1px solid var(–border2);border-radius:10px;padding:11px 14px;color:var(–text);font-family:-apple-system,‘SF Pro Text’,‘Segoe UI’,sans-serif;font-size:14px;outline:none;transition:border-color .2s;}
+.input:focus{border-color:var(–green)66;}
+.input::placeholder{color:var(–muted);}
+.label{font-size:11px;color:var(–muted2);font-weight:500;margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase;}
+.field{margin-bottom:14px;}
+textarea.input{resize:none;min-height:80px;line-height:1.5;}
+
+/* SEVERITY */
+.sev{font-family:‘Courier New’,monospace;font-size:9px;padding:2px 7px;border-radius:4px;border:1px solid;font-weight:700;}
+.sev-critical{color:#ff00aa;border-color:#ff00aa44;background:#ff00aa11;}
+.sev-high{color:var(–red);border-color:var(–red)44;background:var(–red)11;}
+.sev-medium{color:var(–yellow);border-color:var(–yellow)44;background:var(–yellow)11;}
+.sev-low{color:var(–green);border-color:var(–green)44;background:var(–green)11;}
+.sev-info{color:var(–blue);border-color:var(–blue)44;background:var(–blue)11;}
+
+/* CARDS */
+.card{background:var(–s1);border:1px solid var(–border);border-radius:14px;margin-bottom:10px;overflow:hidden;}
+.card-header{padding:12px 14px;border-bottom:1px solid var(–border);display:flex;align-items:center;justify-content:space-between;}
+.card-title{font-family:-apple-system,‘SF Pro Display’,‘Segoe UI’,sans-serif;font-size:14px;font-weight:700;}
+.card-body{padding:14px;}
+
+/* MODE CARDS */
+.mode-card{
+background:var(–s2);border:1px solid var(–border);border-radius:14px;
+padding:18px;margin-bottom:10px;cursor:pointer;transition:all .2s;
+animation:fadeIn .3s ease;
+}
+.mode-card:active{transform:scale(.98);}
+.mode-card.hunter{border-color:var(–red)44;}
+.mode-card.spectate{border-color:var(–purple)44;}
+.mode-card.learn{border-color:var(–blue)44;}
+.mode-icon{font-size:28px;margin-bottom:8px;}
+.mode-title{font-family:-apple-system,‘SF Pro Display’,‘Segoe UI’,sans-serif;font-size:16px;font-weight:800;margin-bottom:4px;}
+.mode-desc{font-size:12px;color:var(–muted2);line-height:1.5;}
+.mode-badge{font-family:‘Courier New’,monospace;font-size:9px;padding:2px 8px;border-radius:4px;margin-top:8px;display:inline-block;}
+
+/* SESSION LIST */
+.session-item{
+background:var(–s2);border:1px solid var(–border);border-radius:10px;
+padding:12px 14px;margin-bottom:8px;cursor:pointer;
+display:flex;align-items:center;gap:10px;
+}
+.session-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.session-title{font-size:13px;font-weight:600;}
+.session-meta{font-size:10px;color:var(–muted);font-family:‘Courier New’,monospace;}
+
+/* CHAT */
+#chat-wrap{display:flex;flex-direction:column;height:100%;}
+#chat-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch;}
+.msg-user{align-self:flex-end;background:var(–green);color:#000;border-radius:16px 16px 4px 16px;padding:10px 14px;max-width:86%;font-size:13px;line-height:1.5;font-weight:500;}
+.msg-ai{align-self:flex-start;background:var(–s2);border:1px solid var(–border);border-radius:16px 16px 16px 4px;padding:10px 14px;max-width:86%;font-size:13px;line-height:1.65;color:var(–text);}
+.msg-ai code{font-family:‘Courier New’,monospace;background:var(–s3);border-radius:4px;padding:1px 5px;font-size:11px;color:var(–green);}
+.msg-ai pre{font-family:‘Courier New’,monospace;background:var(–s3);border:1px solid var(–border2);border-radius:8px;padding:10px;font-size:11px;overflow-x:auto;margin:6px 0;color:var(–green);white-space:pre-wrap;}
+.ai-tag{font-family:‘Courier New’,monospace;font-size:9px;color:var(–green);margin-bottom:4px;letter-spacing:.1em;}
+#chat-input-bar{
+padding:8px 12px calc(10px + var(–safe-bot));
+border-top:1px solid var(–border);background:var(–s1);flex-shrink:0;
+}
+#chat-row{display:flex;gap:8px;align-items:flex-end;}
+#ci{
+flex:1;background:var(–s2);border:1.5px solid var(–border2);
+border-radius:12px;padding:10px 13px;color:var(–text);
+font-family:-apple-system,‘SF Pro Text’,‘Segoe UI’,sans-serif;font-size:14px;outline:none;
+resize:none;min-height:42px;max-height:100px;line-height:1.5;
+-webkit-appearance:none;transition:border-color .2s;
+}
+#ci:focus{border-color:var(–green)66;}
+#cs{
+width:42px;height:42px;border-radius:12px;border:none;
+background:var(–green);color:#000;font-size:16px;cursor:pointer;
+display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+#cs:active{transform:scale(.88);}
+
+/* FINDING CARD */
+.finding-card{
+background:var(–s2);border:1px solid var(–border);border-radius:12px;
+padding:14px;margin-bottom:10px;animation:fadeIn .3s ease;
+}
+.finding-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;gap:8px;}
+.finding-title{font-size:13px;font-weight:600;line-height:1.4;flex:1;}
+.finding-url{font-family:‘Courier New’,monospace;font-size:10px;color:var(–muted2);margin-bottom:6px;word-break:break-all;}
+.finding-desc{font-size:12px;color:var(–muted2);line-height:1.6;margin-bottom:8px;}
+.finding-type{font-family:‘Courier New’,monospace;font-size:9px;color:var(–purple);border:1px solid var(–purple)44;background:var(–purple)11;padding:2px 7px;border-radius:4px;display:inline-block;margin-bottom:8px;}
+
+/* NOTE CARD */
+.note-card{
+background:var(–s2);border:1px solid var(–border);border-radius:12px;
+padding:14px;margin-bottom:10px;
+}
+.note-title{font-size:13px;font-weight:600;margin-bottom:6px;}
+.note-content{font-family:‘Courier New’,monospace;font-size:11px;color:var(–muted2);line-height:1.8;margin-bottom:8px;white-space:pre-wrap;}
+.note-tags{display:flex;gap:6px;flex-wrap:wrap;}
+.note-tag{font-size:10px;color:var(–muted);background:var(–s3);border-radius:4px;padding:2px 8px;}
+
+/* TARGET CARD */
+.target-card{
+background:var(–s2);border:1px solid var(–border);border-radius:12px;
+padding:14px;margin-bottom:10px;
+}
+.target-name{font-family:-apple-system,‘SF Pro Display’,‘Segoe UI’,sans-serif;font-size:15px;font-weight:700;margin-bottom:4px;}
+.target-url{font-family:‘Courier New’,monospace;font-size:11px;color:var(–blue);margin-bottom:6px;}
+.target-meta{display:flex;gap:8px;flex-wrap:wrap;font-size:10px;color:var(–muted);margin-bottom:10px;}
+.active-badge{background:var(–green)18;border:1px solid var(–green)44;color:var(–green);font-family:‘Courier New’,monospace;font-size:9px;padding:2px 8px;border-radius:4px;}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;}
+.stat-box{background:var(–s2);border:1px solid var(–border);border-radius:10px;padding:10px 6px;text-align:center;}
+.stat-num{font-family:-apple-system,‘SF Pro Display’,‘Segoe UI’,sans-serif;font-size:22px;font-weight:800;}
+.stat-label{font-size:9px;color:var(–muted);margin-top:2px;letter-spacing:.03em;}
+
+/* OPS */
+.ops-line{font-family:‘Courier New’,monospace;font-size:11px;color:var(–green);line-height:2;padding:14px;}
+.ops-cursor{display:inline-block;width:8px;height:14px;background:var(–green);animation:blink .8s step-end infinite;vertical-align:middle;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0;}}
+
+/* ANIMATIONS */
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.dot-anim{display:flex;gap:4px;align-items:center;padding:2px 0;}
+.dot-anim span{width:6px;height:6px;border-radius:50%;background:var(–green);animation:dotB 1.1s infinite ease-in-out;}
+.dot-anim span:nth-child(2){animation-delay:.18s;}
+.dot-anim span:nth-child(3){animation-delay:.36s;}
+@keyframes dotB{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1.1);opacity:1}}
+
+.empty{text-align:center;padding:40px 20px;}
+.empty-icon{font-size:36px;margin-bottom:10px;}
+.empty-text{font-size:12px;color:var(–muted);}
+</style>
+
+</head>
+<body>
+
+<div id="topbar">
+  <div>
+    <div class="logo">Hunt<span>AI</span></div>
+    <div class="logo-sub">BUG BOUNTY INTELLIGENCE</div>
+  </div>
+  <div class="sys-badge" id="sys-status">SYSTEM_ONLINE</div>
+</div>
+
+<div id="nav">
+  <div class="nav-tab active" onclick="switchNav('ops')" id="nt-ops">
+    <span class="nt-icon">⚡</span>
+    <span class="nt-label">OPS</span>
+  </div>
+  <div class="nav-tab" onclick="switchNav('sessions')" id="nt-sessions">
+    <span class="nt-icon">🤖</span>
+    <span class="nt-label">AI</span>
+  </div>
+  <div class="nav-tab" onclick="switchNav('targets')" id="nt-targets">
+    <span class="nt-icon">🎯</span>
+    <span class="nt-label">Targets</span>
+  </div>
+  <div class="nav-tab" onclick="switchNav('findings')" id="nt-findings">
+    <span class="nt-icon">🐛</span>
+    <span class="nt-label">Findings</span>
+  </div>
+  <div class="nav-tab" onclick="switchNav('notes')" id="nt-notes">
+    <span class="nt-icon">📝</span>
+    <span class="nt-label">Notes</span>
+  </div>
+</div>
+
+<div id="main"></div>
+
+<script>
+// ── FREE AI CONFIG (no key needed from user) ──
+const MODELS = [
+  'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
+  'https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta',
+  'https://api-inference.huggingface.co/models/microsoft/DialoGPT-large'
+];
+
+// ── STATE ──
+let currentNav = 'ops';
+let currentMode = null;
+let chatHistory = [];
+let isLoading = false;
+let targets = JSON.parse(localStorage.getItem('huntai2_targets') || '[]');
+let findings = JSON.parse(localStorage.getItem('huntai2_findings') || '[]');
+let notes = JSON.parse(localStorage.getItem('huntai2_notes') || '[]');
+let sessions = JSON.parse(localStorage.getItem('huntai2_sessions') || '[]');
+
+// ── SYSTEM PROMPTS ──
+const PROMPTS = {
+  hunter: `You are HuntAI in HUNTER mode — an elite bug bounty attack partner. You think like a senior offensive security researcher.
+
+When given a target, you provide:
+- Attack surface analysis
+- Specific vulnerability types most likely present
+- Exact payloads and test steps
+- API endpoints to probe
+- Tools and commands
+
+Be tactical, precise, aggressive. Give real payloads like:
+XSS: <img src=x onerror=alert(document.cookie)>
+SQLi: ' OR '1'='1
+IDOR: Change /api/v1/user/123 to /api/v1/user/124
+SSRF: ?url=http://169.254.169.254/latest/meta-data/
+
+Always rate severity: CRITICAL/HIGH/MEDIUM/LOW`,
+
+  spectate: `You are HuntAI in SPECTATE mode — an elite code vulnerability analyzer.
+
+When given code, configs, HTTP requests/responses, or URLs, you:
+1. Find ALL security vulnerabilities immediately
+2. Rate each: CRITICAL/HIGH/MEDIUM/LOW
+3. Explain exactly why it's vulnerable
+4. Provide exact exploit payload/steps
+5. Suggest fix
+
+Look for: XSS, SQLi, IDOR, CSRF, SSRF, RCE, Auth bypass, Info disclosure, Insecure deserialization, XXE, Path traversal`,
+
+  learn: `You are HuntAI in LEARN mode — a world-class bug bounty methodology teacher.
+
+You teach real techniques with real examples:
+- Actual payloads that work
+- Real vulnerability patterns
+- Step-by-step methodology
+- How to chain bugs for higher severity
+- How to write winning reports
+
+Make it practical — every lesson includes something the hunter can use TODAY.`
+};
+
+// ── CALL AI (free, no user key) ──
+async function callAI(messages, mode) {
+  const systemPrompt = PROMPTS[mode] || PROMPTS.hunter;
+  
+  // Build Mistral instruct format
+  let prompt = '<s>[INST] ' + systemPrompt + ' [/INST] Understood. I am HuntAI in ' + mode.toUpperCase() + ' mode. Ready. </s>';
+  messages.forEach(function(m) {
+    if (m.role === 'user') prompt += '<s>[INST] ' + m.content + ' [/INST]';
+    else prompt += ' ' + m.content + ' </s>';
+  });
+
+  // Try models in order
+  for (let i = 0; i < MODELS.length; i++) {
+    try {
+      const res = await fetch(MODELS[i], {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {max_new_tokens: 800, temperature: 0.7, return_full_text: false, do_sample: true}
+        })
+      });
+      
+      if (res.status === 503) {
+        return '⏳ AI model is loading up... Please wait 20 seconds and send your message again!';
+      }
+      
+      if (!res.ok) continue;
+      
+      const data = await res.json();
+      if (data.error) {
+        if (data.error.includes('loading')) return '⏳ AI waking up... Resend in 20 seconds!';
+        continue;
+      }
+      
+      if (Array.isArray(data) && data[0]?.generated_text) {
+        return data[0].generated_text.trim();
+      }
+    } catch(e) {
+      continue;
+    }
+  }
+  
+  return '❌ All AI models busy. Try again in 30 seconds.';
+}
+
+// ── NAV ──
+function switchNav(nav) {
+  currentNav = nav;
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('nt-' + nav).classList.add('active');
+  render();
+}
+
+function render() {
+  const main = document.getElementById('main');
+  if (currentNav === 'ops') renderOps(main);
+  else if (currentNav === 'sessions') renderSessions(main);
+  else if (currentNav === 'targets') renderTargets(main);
+  else if (currentNav === 'findings') renderFindings(main);
+  else if (currentNav === 'notes') renderNotes(main);
+}
+
+// ── OPS CENTER ──
+function renderOps(c) {
+  const critical = findings.filter(f=>f.severity==='critical').length;
+  const high = findings.filter(f=>f.severity==='high').length;
+
+  c.innerHTML = `<div style="padding:16px;">
+    <div style="font-family:'Courier New',monospace;font-size:10px;color:var(--green);margin-bottom:16px;line-height:2;">
+      OPS CENTER<br>
+      SYSTEM_ONLINE // WAITING_FOR_INPUT<span class="ops-cursor"></span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+      <div onclick="switchNav('sessions')" style="background:var(--red)11;border:1px solid var(--red)33;border-radius:12px;padding:14px;cursor:pointer;">
+        <div style="font-size:20px;margin-bottom:6px;">🎯</div>
+        <div style="font-family:-apple-system,'SF Pro Display','Segoe UI',sans-serif;font-size:13px;font-weight:700;color:var(--red);">Hunter Mode</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;">Attack partner</div>
+      </div>
+      <div onclick="switchNav('sessions')" style="background:var(--purple)11;border:1px solid var(--purple)33;border-radius:12px;padding:14px;cursor:pointer;">
+        <div style="font-size:20px;margin-bottom:6px;">👁️</div>
+        <div style="font-family:-apple-system,'SF Pro Display','Segoe UI',sans-serif;font-size:13px;font-weight:700;color:var(--purple);">Spectate Mode</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;">Code analyzer</div>
+      </div>
+      <div onclick="switchNav('sessions')" style="background:var(--blue)11;border:1px solid var(--blue)33;border-radius:12px;padding:14px;cursor:pointer;">
+        <div style="font-size:20px;margin-bottom:6px;">📚</div>
+        <div style="font-family:-apple-system,'SF Pro Display','Segoe UI',sans-serif;font-size:13px;font-weight:700;color:var(--blue);">Learn Mode</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;">Methodology</div>
+      </div>
+      <div onclick="switchNav('findings')" style="background:var(--yellow)11;border:1px solid var(--yellow)33;border-radius:12px;padding:14px;cursor:pointer;">
+        <div style="font-size:20px;margin-bottom:6px;">🐛</div>
+        <div style="font-family:-apple-system,'SF Pro Display','Segoe UI',sans-serif;font-size:13px;font-weight:700;color:var(--yellow);">${findings.length} Findings</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;">${critical} critical</div>
+      </div>
+    </div>
+
+    <div style="font-family:'Courier New',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;letter-spacing:.1em;">RECENT_FINDINGS</div>
+
+    ${findings.length === 0 ?
+      '<div class="empty"><div class="empty-icon">🎯</div><div class="empty-text">No findings yet — start hunting!</div></div>' :
+      findings.slice(-5).reverse().map(f => `
+        <div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+          <span class="sev sev-${f.severity}">${f.severity.toUpperCase()}</span>
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:600;">${f.vulnType || 'BUG'}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">${f.title}</div>
+          </div>
+        </div>
+      `).join('')
+    }
+
+    <div style="margin-top:16px;font-family:'Courier New',monospace;font-size:10px;color:var(--muted);line-height:2;">
+      Active Targets: <span style="color:var(--green)">${targets.length}</span><br>
+      Total Findings: <span style="color:var(--green)">${findings.length}</span><br>
+      Critical: <span style="color:var(--red)">${critical}</span><br>
+      High: <span style="color:var(--yellow)">${high}</span>
+    </div>
+  </div>`;
+}
+
+// ── AI SESSIONS ──
+function renderSessions(c) {
+  if (currentMode) {
+    renderChat(c);
+    return;
+  }
+
+  c.innerHTML = `<div style="padding:16px;">
+    <div style="font-family:'Courier New',monospace;font-size:10px;color:var(--green);margin-bottom:4px;">AI SESSIONS</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Choose a mode and start hunting</div>
+
+    <div class="mode-card hunter" onclick="startSession('hunter')">
+      <div class="mode-icon">🎯</div>
+      <div class="mode-title" style="color:var(--red);">HUNTER</div>
+      <div class="mode-desc">Tactical attack partner — give me a target or ask for attack vectors</div>
+      <div class="mode-badge" style="background:var(--red)11;border:1px solid var(--red)33;color:var(--red);">OFFENSIVE MODE</div>
+    </div>
+
+    <div class="mode-card spectate" onclick="startSession('spectate')">
+      <div class="mode-icon">👁️</div>
+      <div class="mode-title" style="color:var(--purple);">SPECTATE</div>
+      <div class="mode-desc">Paste code — I'll find every exploitable vulnerability</div>
+      <div class="mode-badge" style="background:var(--purple)11;border:1px solid var(--purple)33;color:var(--purple);">CODE ANALYSIS</div>
+    </div>
+
+    <div class="mode-card learn" onclick="startSession('learn')">
+      <div class="mode-icon">📚</div>
+      <div class="mode-title" style="color:var(--blue);">LEARN</div>
+      <div class="mode-desc">Real bug bounty techniques, real payloads, real examples</div>
+      <div class="mode-badge" style="background:var(--blue)11;border:1px solid var(--blue)33;color:var(--blue);">METHODOLOGY</div>
+    </div>
+
+    ${sessions.length > 0 ? `
+      <div style="font-family:'Courier New',monospace;font-size:10px;color:var(--muted);margin:16px 0 8px;letter-spacing:.1em;">PREVIOUS_SESSIONS</div>
+      ${sessions.slice(-5).reverse().map((s,i) => `
+        <div class="session-item" onclick="loadSession(${sessions.length-1-i})">
+          <div class="session-dot" style="background:${s.mode==='hunter'?'var(--red)':s.mode==='spectate'?'var(--purple)':'var(--blue)'}"></div>
+          <div style="flex:1;">
+            <div class="session-title">${s.title}</div>
+            <div class="session-meta">${s.mode.toUpperCase()} MODE • ${s.date}</div>
+          </div>
+          <span style="font-size:16px;">›</span>
+        </div>
+      `).join('')}
+    ` : ''}
+  </div>`;
+}
+
+function startSession(mode) {
+  currentMode = mode;
+  chatHistory = [];
+  render();
+}
+
+function loadSession(i) {
+  const s = sessions[i];
+  currentMode = s.mode;
+  chatHistory = s.messages || [];
+  render();
+}
+
+// ── CHAT ──
+function renderChat(c) {
+  const modeColors = {hunter:'var(--red)', spectate:'var(--purple)', learn:'var(--blue)'};
+  const modeColor = modeColors[currentMode] || 'var(--green)';
+  const modeTitles = {hunter:'🎯 HUNTER MODE', spectate:'👁️ SPECTATE MODE', learn:'📚 LEARN MODE'};
+
+  c.innerHTML = `<div id="chat-wrap" style="display:flex;flex-direction:column;height:100%;">
+    <div style="padding:8px 14px;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <button onclick="exitChat()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;">←</button>
+      <span style="font-family:'Courier New',monospace;font-size:11px;color:${modeColor};font-weight:700;">${modeTitles[currentMode]}</span>
+      <button onclick="saveSession()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:10px;padding:3px 8px;cursor:pointer;font-family:'Courier New',monospace;">SAVE</button>
+      <button onclick="saveFindingFromChat()" style="background:none;border:1px solid var(--green)33;border-radius:6px;color:var(--green);font-size:10px;padding:3px 8px;cursor:pointer;font-family:'Courier New',monospace;">+ FINDING</button>
+    </div>
+    <div id="chat-msgs" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;">
+      ${chatHistory.length === 0 ? getWelcomeMessage() : chatHistory.map(renderMsg).join('')}
+    </div>
+    <div id="chat-input-bar" style="padding:8px 12px calc(10px + var(--safe-bot));border-top:1px solid var(--border);background:var(--s1);">
+      <div id="chat-row" style="display:flex;gap:8px;align-items:flex-end;">
+        <textarea id="ci" rows="1" placeholder="${getPlaceholder()}"></textarea>
+
+```
+    <button id="cs" onclick="sendMsg()" style="width:42px;height:42px;border-radius:12px;border:none;background:${modeColor};color:#000;font-size:16px;cursor:pointer;flex-shrink:0;">➤</button>
+  </div>
+</div>
+```
+
+  </div>`;
+
+// Setup input
+const ci = document.getElementById(‘ci’);
+ci.addEventListener(‘input’, function(){this.style.height=‘auto’;this.style.height=Math.min(this.scrollHeight,100)+‘px’;});
+ci.addEventListener(‘keydown’, function(e){if(e.key===‘Enter’&&!e.shiftKey){e.preventDefault();sendMsg();}});
+
+scrollChat();
+}
+
+function getWelcomeMessage() {
+const msgs = {
+hunter: ‘<div class="msg-ai"><div class="ai-tag">HUNTAI // HUNTER</div>Target acquired. Give me a URL, domain, or describe what you're hunting. I'll give you exact attack vectors, payloads, and steps. 🎯</div>’,
+spectate: ‘<div class="msg-ai"><div class="ai-tag">HUNTAI // SPECTATE</div>Ready to analyze. Paste any code, HTTP request/response, API endpoint, or URL. I'll find every vulnerability and rate severity. 👁️</div>’,
+learn: ‘<div class="msg-ai"><div class="ai-tag">HUNTAI // LEARN</div>What do you want to master today? Ask me about any vulnerability type, hunting technique, or methodology. I'll teach you with real examples. 📚</div>’
+};
+return msgs[currentMode] || msgs.hunter;
+}
+
+function getPlaceholder() {
+const ph = {
+hunter: ‘Give me a target URL or ask for attack vectors…’,
+spectate: ‘Paste code, HTTP request, or URL to analyze…’,
+learn: ‘What technique do you want to learn?’
+};
+return ph[currentMode] || ‘Ask HuntAI…’;
+}
+
+function renderMsg(m) {
+if (m.role === ‘user’) return `<div class="msg-user">${escHtml(m.content)}</div>`;
+return `<div class="msg-ai"><div class="ai-tag">HUNTAI</div>${formatAI(m.content)}</div>`;
+}
+
+async function sendMsg() {
+const ci = document.getElementById(‘ci’);
+const text = ci.value.trim();
+if (!text || isLoading) return;
+ci.value = ‘’; ci.style.height = ‘auto’;
+
+chatHistory.push({role:‘user’, content:text});
+isLoading = true;
+appendMsg(`<div class="msg-user">${escHtml(text)}</div>`);
+appendMsg(`<div class="msg-ai"><div class="ai-tag">HUNTAI</div><div class="dot-anim"><span></span><span></span><span></span></div></div>`, ‘loading-msg’);
+scrollChat();
+
+const reply = await callAI(chatHistory, currentMode);
+chatHistory.push({role:‘assistant’, content:reply});
+
+const loadingEl = document.getElementById(‘loading-msg’);
+if (loadingEl) loadingEl.outerHTML = `<div class="msg-ai"><div class="ai-tag">HUNTAI</div>${formatAI(reply)}</div>`;
+
+isLoading = false;
+scrollChat();
+}
+
+function appendMsg(html, id) {
+const msgs = document.getElementById(‘chat-msgs’);
+if (msgs) {
+const div = document.createElement(‘div’);
+if (id) div.id = id;
+div.innerHTML = html;
+msgs.appendChild(div.firstChild || div);
+}
+}
+
+function scrollChat() {
+setTimeout(() => {
+const msgs = document.getElementById(‘chat-msgs’);
+if (msgs) msgs.scrollTop = msgs.scrollHeight;
+}, 50);
+}
+
+function exitChat() {
+currentMode = null;
+chatHistory = [];
+render();
+}
+
+function saveSession() {
+if (chatHistory.length === 0) return;
+const firstMsg = chatHistory.find(m=>m.role===‘user’);
+sessions.push({
+mode: currentMode,
+title: firstMsg ? firstMsg.content.substring(0,40) + ‘…’ : ‘New Session’,
+messages: chatHistory,
+date: new Date().toLocaleDateString()
+});
+localStorage.setItem(‘huntai2_sessions’, JSON.stringify(sessions));
+alert(‘Session saved!’);
+}
+
+function saveFindingFromChat() {
+const lastAI = chatHistory.filter(m=>m.role===‘assistant’).pop();
+if (!lastAI) return;
+switchNav(‘findings’);
+setTimeout(() => showAddFinding(lastAI.content), 300);
+}
+
+// ── TARGETS ──
+function renderTargets(c) {
+c.innerHTML = `<div style="padding:16px;">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+<div>
+<div style="font-family:'Courier New',monospace;font-size:10px;color:var(--green);margin-bottom:2px;">TARGETS</div>
+<div style="font-size:12px;color:var(--muted);">Programs under active recon</div>
+</div>
+<button class="btn btn-outline" onclick="showAddTarget()">+ ADD</button>
+</div>
+
+```
+<div id="add-target-form" style="display:none;margin-bottom:14px;">
+  <div class="card">
+    <div class="card-header"><div class="card-title">Add Target</div></div>
+    <div class="card-body">
+      <div class="field"><div class="label">Program Name</div><input class="input" id="t-name" placeholder="e.g. Chime Bug Bounty"/></div>
+      <div class="field"><div class="label">Target URL</div><input class="input" id="t-url" placeholder="https://target.com"/></div>
+      <div class="field"><div class="label">Platform</div>
+        <select class="input" id="t-platform"><option>Bugcrowd</option><option>HackerOne</option><option>Intigriti</option><option>Other</option></select>
+      </div>
+      <div class="field"><div class="label">Scope</div><textarea class="input" id="t-scope" placeholder="*.target.com&#10;api.target.com"></textarea></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-green" style="flex:1;padding:10px;" onclick="addTarget()">Save</button>
+        <button class="btn btn-outline" onclick="document.getElementById('add-target-form').style.display='none'">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+${targets.length === 0 ?
+  '<div class="empty"><div class="empty-icon">🎯</div><div class="empty-text">No targets yet<br>Add your first program!</div></div>' :
+  targets.map((t,i) => `
+    <div class="target-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div class="target-name">${t.name}</div>
+        <span class="active-badge">ACTIVE</span>
+      </div>
+      <div class="target-url">${t.url}</div>
+      <div class="target-meta">
+        <span>📋 ${t.platform}</span>
+        <span>🌐 ${(t.scope||'').split('\n').filter(Boolean).length} domains</span>
+        <span>🐛 ${findings.filter(f=>f.target===t.name).length} findings</span>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-green" style="flex:1;padding:9px;font-size:12px;" onclick="analyzeTarget(${i})">🔍 ANALYZE</button>
+        <button class="btn btn-outline" onclick="huntWithTarget(${i})">🎯 HUNT</button>
+        <button class="btn btn-red" onclick="deleteTarget(${i})">🗑️</button>
+      </div>
+    </div>
+  `).join('')
+}
+```
+
+  </div>`;
+}
+
+function showAddTarget() {
+const f = document.getElementById(‘add-target-form’);
+if (f) f.style.display = f.style.display === ‘none’ ? ‘block’ : ‘none’;
+}
+
+function addTarget() {
+const t = {
+name: document.getElementById(‘t-name’).value.trim(),
+url: document.getElementById(‘t-url’).value.trim(),
+platform: document.getElementById(‘t-platform’).value,
+scope: document.getElementById(‘t-scope’).value.trim(),
+date: new Date().toLocaleDateString()
+};
+if (!t.name || !t.url) return;
+targets.push(t);
+localStorage.setItem(‘huntai2_targets’, JSON.stringify(targets));
+render();
+}
+
+function deleteTarget(i) {
+if (!confirm(‘Delete target?’)) return;
+targets.splice(i,1);
+localStorage.setItem(‘huntai2_targets’, JSON.stringify(targets));
+render();
+}
+
+function analyzeTarget(i) {
+const t = targets[i];
+currentMode = ‘hunter’;
+chatHistory = [];
+switchNav(‘sessions’);
+setTimeout(() => {
+document.getElementById(‘ci’).value = `Analyze this bug bounty target completely:\n\nProgram: ${t.name}\nURL: ${t.url}\nPlatform: ${t.platform}\nScope: ${t.scope}\n\nGive me:\n1. Attack surface analysis\n2. Top 5 vulnerability types most likely present\n3. Exact test steps for each\n4. Real payloads to try\n5. First 30 minutes action plan`;
+sendMsg();
+}, 400);
+}
+
+function huntWithTarget(i) {
+const t = targets[i];
+currentMode = ‘hunter’;
+chatHistory = [];
+switchNav(‘sessions’);
+}
+
+// ── FINDINGS ──
+function renderFindings(c) {
+c.innerHTML = `<div style="padding:16px;">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+<div>
+<div style="font-family:'Courier New',monospace;font-size:10px;color:var(--green);margin-bottom:2px;">FINDINGS</div>
+<div style="font-size:12px;color:var(--muted);">${findings.length} vulnerabilities</div>
+</div>
+<button class="btn btn-outline" onclick="showAddFinding()">+ LOG</button>
+</div>
+
+```
+<div id="add-finding-form" style="display:none;margin-bottom:14px;">
+  <div class="card">
+    <div class="card-header"><div class="card-title">Log Finding</div></div>
+    <div class="card-body">
+      <div class="field"><div class="label">Vulnerability Type</div>
+        <select class="input" id="f-type">
+          <option>IDOR</option><option>XSS</option><option>CSRF</option><option>SQLi</option>
+          <option>SSRF</option><option>RCE</option><option>BROKEN AUTH</option>
+          <option>INFO DISCLOSURE</option><option>OPEN REDIRECT</option><option>OTHER</option>
+        </select>
+      </div>
+      <div class="field"><div class="label">Title</div><input class="input" id="f-title" placeholder="Brief description..."/></div>
+      <div class="field"><div class="label">Severity</div>
+        <select class="input" id="f-sev">
+          <option value="critical">🔴 CRITICAL</option>
+          <option value="high">🟠 HIGH</option>
+          <option value="medium" selected>🟡 MEDIUM</option>
+          <option value="low">🟢 LOW</option>
+          <option value="info">🔵 INFO</option>
+        </select>
+      </div>
+      <div class="field"><div class="label">Vulnerable URL</div><input class="input" id="f-url" placeholder="https://target.com/endpoint"/></div>
+      <div class="field"><div class="label">Description</div><textarea class="input" id="f-desc" placeholder="What's the vulnerability?"></textarea></div>
+      <div class="field"><div class="label">POC / Steps</div><textarea class="input" id="f-poc" placeholder="Steps to reproduce..."></textarea></div>
+      <div class="field"><div class="label">Screenshot URL (optional)</div>
+        <div style="display:flex;gap:6px;">
+          <input class="input" id="f-ss" placeholder="https://imgur.com/..."/>
+          <button class="btn btn-outline" style="white-space:nowrap;padding:8px 10px;" onclick="window.open('https://imgur.com/upload','_blank')">📸 Upload</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-green" style="flex:1;padding:10px;" onclick="addFinding()">Save Finding</button>
+        <button class="btn btn-outline" onclick="document.getElementById('add-finding-form').style.display='none'">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+${['critical','high','medium','low','info'].map(sev => {
+  const sevFindings = findings.filter(f=>f.severity===sev);
+  if (sevFindings.length === 0) return '';
+  return `
+    <div style="font-family:'Courier New',monospace;font-size:10px;color:var(--muted);margin:12px 0 8px;letter-spacing:.1em;">${sev.toUpperCase()} (${sevFindings.length})</div>
+    ${sevFindings.map((f,i) => `
+      <div class="finding-card">
+        <div class="finding-header">
+          <div class="finding-title">${f.title}</div>
+          <span class="sev sev-${f.severity}">${f.severity.toUpperCase()}</span>
+        </div>
+        <div class="finding-type">${f.vulnType || 'BUG'}</div>
+        <div class="finding-url">📍 ${f.url || 'No URL'}</div>
+        <div class="finding-desc">${f.description || ''}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-outline" style="font-size:11px;padding:6px 10px;" onclick="genPOC(${findings.indexOf(f)})">⚡ POC</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:6px 10px;" onclick="genReport(${findings.indexOf(f)})">📋 Report</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:6px 10px;" onclick="addScreenshot(${findings.indexOf(f)})">📸 SS</button>
+          <button class="btn btn-red" style="font-size:11px;padding:6px 10px;" onclick="deleteFinding(${findings.indexOf(f)})">🗑️</button>
+        </div>
+        ${f.screenshot ? `<div style="margin-top:8px;font-family:'Courier New',monospace;font-size:10px;"><span style="color:var(--muted)">📸 SS: </span><a href="${f.screenshot}" target="_blank" style="color:var(--blue);word-break:break-all;">${f.screenshot}</a></div>` : ''}
+      </div>
+    `).join('')}
+  `;
+}).join('')}
+
+${findings.length === 0 ?
+  '<div class="empty"><div class="empty-icon">🐛</div><div class="empty-text">No findings yet<br>Hunt a target to find bugs!</div></div>' : ''}
+```
+
+  </div>`;
+}
+
+function showAddFinding(prefill) {
+renderFindings(document.getElementById(‘main’));
+const f = document.getElementById(‘add-finding-form’);
+if (f) {
+f.style.display = ‘block’;
+if (prefill && document.getElementById(‘f-desc’)) {
+document.getElementById(‘f-desc’).value = prefill.substring(0, 500);
+}
+}
+}
+
+function addFinding() {
+const f = {
+vulnType: document.getElementById(‘f-type’).value,
+title: document.getElementById(‘f-title’).value.trim(),
+severity: document.getElementById(‘f-sev’).value,
+url: document.getElementById(‘f-url’).value.trim(),
+description: document.getElementById(‘f-desc’).value.trim(),
+poc: document.getElementById(‘f-poc’).value.trim(),
+screenshot: document.getElementById(‘f-ss’) ? document.getElementById(‘f-ss’).value.trim() : ‘’,
+date: new Date().toLocaleDateString()
+};
+if (!f.title) return;
+findings.push(f);
+localStorage.setItem(‘huntai2_findings’, JSON.stringify(findings));
+render();
+}
+
+function deleteFinding(i) {
+if (!confirm(‘Delete finding?’)) return;
+findings.splice(i,1);
+localStorage.setItem(‘huntai2_findings’, JSON.stringify(findings));
+render();
+}
+
+function genPOC(i) {
+const f = findings[i];
+currentMode = ‘hunter’;
+chatHistory = [];
+switchNav(‘sessions’);
+setTimeout(() => {
+document.getElementById(‘ci’).value = `Generate a complete Proof of Concept for this vulnerability:\n\nType: ${f.vulnType}\nSeverity: ${f.severity}\nURL: ${f.url}\nDescription: ${f.description}\n\nProvide: exact exploit payload, curl command, step by step reproduction, what the triager should see as evidence.`;
+sendMsg();
+}, 400);
+}
+
+function genReport(i) {
+const f = findings[i];
+currentMode = ‘hunter’;
+chatHistory = [];
+switchNav(‘sessions’);
+setTimeout(() => {
+document.getElementById(‘ci’).value = `Write a complete professional Bugcrowd bug bounty report:\n\nVuln Type: ${f.vulnType}\nSeverity: ${f.severity}\nURL: ${f.url}\nDescription: ${f.description}\nPOC: ${f.poc}\n\nFormat with all sections: Title, Summary, Severity justification, Steps to Reproduce, Impact, POC, Remediation.`;
+sendMsg();
+}, 400);
+}
+
+// ── NOTES ──
+function renderNotes(c) {
+c.innerHTML = `<div style="padding:16px;">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+<div>
+<div style="font-family:'Courier New',monospace;font-size:10px;color:var(--green);margin-bottom:2px;">NOTES</div>
+<div style="font-size:12px;color:var(--muted);">Field notes and recon data</div>
+</div>
+<button class="btn btn-outline" onclick="showAddNote()">+ NEW</button>
+</div>
+
+```
+<div id="add-note-form" style="display:none;margin-bottom:14px;">
+  <div class="card">
+    <div class="card-header"><div class="card-title">New Note</div></div>
+    <div class="card-body">
+      <div class="field"><div class="label">Title</div><input class="input" id="n-title" placeholder="e.g. Recon notes - Target"/></div>
+      <div class="field"><div class="label">Content</div><textarea class="input" id="n-content" style="min-height:120px;" placeholder="Subdomain enumeration found:&#10;- api.target.com&#10;- admin.target.com (403)&#10;&#10;Interesting endpoints:&#10;- /graphql"></textarea></div>
+      <div class="field"><div class="label">Tags (comma separated)</div><input class="input" id="n-tags" placeholder="recon, subdomains, graphql"/></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-green" style="flex:1;padding:10px;" onclick="addNote()">Save Note</button>
+        <button class="btn btn-outline" onclick="document.getElementById('add-note-form').style.display='none'">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+${notes.length === 0 ?
+  '<div class="empty"><div class="empty-icon">📝</div><div class="empty-text">No notes yet<br>Document your recon findings!</div></div>' :
+  notes.map((n,i) => `
+    <div class="note-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div class="note-title">${n.title}</div>
+        <span style="font-size:10px;color:var(--muted);font-family:'Courier New',monospace;">${n.date}</span>
+      </div>
+      <div class="note-content">${n.content}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="note-tags">${(n.tags||[]).map(t=>`<span class="note-tag">${t}</span>`).join('')}</div>
+        <button class="btn btn-red" style="font-size:11px;padding:5px 10px;" onclick="deleteNote(${i})">🗑️</button>
+      </div>
+    </div>
+  `).join('')
+}
+```
+
+  </div>`;
+}
+
+function showAddNote() {
+const f = document.getElementById(‘add-note-form’);
+if (f) f.style.display = f.style.display===‘none’ ? ‘block’ : ‘none’;
+}
+
+function addNote() {
+const n = {
+title: document.getElementById(‘n-title’).value.trim(),
+content: document.getElementById(‘n-content’).value.trim(),
+tags: document.getElementById(‘n-tags’).value.split(’,’).map(t=>t.trim()).filter(Boolean),
+date: new Date().toLocaleDateString()
+};
+if (!n.title) return;
+notes.push(n);
+localStorage.setItem(‘huntai2_notes’, JSON.stringify(notes));
+render();
+}
+
+function deleteNote(i) {
+if (!confirm(‘Delete note?’)) return;
+notes.splice(i,1);
+localStorage.setItem(‘huntai2_notes’, JSON.stringify(notes));
+render();
+}
+
+// ── SCREENSHOT ──
+function addScreenshot(i) {
+// Open imgur in new tab
+window.open(‘https://imgur.com/upload’, ‘_blank’);
+
+// Show modal to paste link back
+setTimeout(() => {
+const link = prompt(‘📸 Upload your screenshot to Imgur then paste the link here:\n\n(imgur.com → upload → copy link)’);
+if (link && link.startsWith(‘http’)) {
+findings[i].screenshot = link;
+localStorage.setItem(‘huntai2_findings’, JSON.stringify(findings));
+render();
+alert(‘✅ Screenshot saved to finding!’);
+} else if (link) {
+alert(‘⚠️ Please paste a valid URL starting with http’);
+}
+}, 1000);
+}
+
+// ── UTILS ──
+function escHtml(t){return String(t).replace(/&/g,’&’).replace(/</g,’<’).replace(/>/g,’>’).replace(/\n/g,’<br>’);}
+function formatAI(text){
+let t=text;
+t=t.replace(/`[\w]*\n?([\s\S]*?)`/g,’<pre>$1</pre>’);
+t=t.replace(/`([^`]+)`/g,’<code>$1</code>’);
+t=t.replace(/**(.*?)**/g,’<strong style="color:var(--green)">$1</strong>’);
+t=t.replace(/^### (.*)/gm,’<div style="font-family:-apple-system,sans-serif;font-size:14px;font-weight:700;margin:10px 0 4px;color:var(--text)">$1</div>’);
+t=t.replace(/^## (.*)/gm,’<div style="font-family:-apple-system,sans-serif;font-size:15px;font-weight:800;margin:12px 0 6px;color:var(--green)">$1</div>’);
+t=t.replace(/\n/g,’<br>’);
+return t;
+}
+
+// ── INIT ──
+window.addEventListener(‘load’, render);
+</script>
+
+</body>
+</html>
